@@ -12,7 +12,8 @@
  * 
  *  Test DH based on "Zemismart Button", namespace: "SangBoy", author: "YooSangBeom"
  * 
- * rev 1.0 2021-05-08 kkossev
+ * rev 1.0 2021-05-08 kkossev - inital test version
+ * rev 1.1 2021-06-06 kkossev - added 'held' and 'up_hold' (release) events decoding for the 2 right buttons (3 and 4)
  *
  */
 
@@ -30,7 +31,7 @@ def parse(String description) {
 	log.debug "description is $description"
 	def event = zigbee.getEvent(description)
 	def result = []
-  def buttonNumber = 0
+	def buttonNumber = 0
 	if (event) {
 		sendEvent(event)
         log.debug "sendEvent $event"
@@ -38,34 +39,57 @@ def parse(String description) {
   }
   if (description?.startsWith("catchall:")) {
     def descMap = zigbee.parseDescriptionAsMap(description)            
-    log.debug "descMap: $descMap"
-    if      (descMap.clusterInt == 0x0006 && descMap.command == "00" ) {
-      buttonNumber = 1
+    log.debug "catchall descMap: $descMap"
+    def buttonState = "unknown"
+    //
+    if (descMap.clusterInt == 0x0008 && descMap.command == "01" && descMap.data[0] == "00" ) {
+      buttonNumber = 3
+      state.lastButtonNumber = 3
+      buttonState = "held"
+    }
+    else if (descMap.clusterInt == 0x0008 && descMap.command == "01" && descMap.data[0] == "01" ) {
+      buttonNumber = 4
+      state.lastButtonNumber = 4
+      buttonState = "held"
+    }
+    else if (descMap.clusterInt == 0x0006 && descMap.command == "00" ) {
+    	buttonNumber = 1
+        state.lastButtonNumber = 1
+    	buttonState = "pushed"
     }
     else if (descMap.clusterInt == 0x0006 && descMap.command == "01" ) {
      	buttonNumber = 2
+        state.lastButtonNumber = 2
+    	buttonState = "pushed"
     }
     else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "00" ) {
      	buttonNumber = 3
+        state.lastButtonNumber = 3
+    	buttonState = "pushed"
     }
     else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "01" ) {
-     	buttonNumber = 4
+    	buttonNumber = 4
+        state.lastButtonNumber = 4
+    	buttonState = "pushed"
     }
-	  if (buttonNumber !=0) {
-      def buttonState = "pushed"
+    else if (descMap.clusterInt == 0x0008 && descMap.command == "03" ) {
+      buttonNumber = state.lastButtonNumber
+      buttonState = "up_hold"
+    }
+    
+    if (buttonState in ["pushed","held","up_hold"] ) {
 	    def descriptionText = "button $buttonNumber was $buttonState"
 	    event = [name: "button", value: buttonState, data: [buttonNumber: buttonNumber], descriptionText: descriptionText, isStateChange: true, displayed: true]
-			log.info "result:  $event"
    	}
-	  if (event) {
-	    log.debug "Creating event: ${event}"
+	if (event) {
+	    log.info "Creating event: ${event}"
 		  result = createEvent(event)
-	  } 
-	  } else {
-		  log.warn "DID NOT PARSE MESSAGE for description : $description"
-		  log.debug zigbee.parseDescriptionAsMap(description)
-	  }
-    return result
+	} 
+  } else {
+	  log.warn "DID NOT PARSE MESSAGE for description : $description"
+	  log.debug zigbee.parseDescriptionAsMap(description)
+  }
+  return result
 }
 
 
@@ -89,8 +113,9 @@ def configure() {
 
 def installed() 
 {
+  	initialize()
     def numberOfButtons = 4
-    sendEvent(name: "supportedButtonValues", value: ["pushed" /*,"held","double"*/].encodeAsJSON(), displayed: false)
+    sendEvent(name: "supportedButtonValues", value: ["pushed", "held", "up_hold"].encodeAsJSON(), displayed: false)
     sendEvent(name: "numberOfButtons", value: numberOfButtons , displayed: false)
     // Initialize default states
     numberOfButtons.times 
@@ -101,9 +126,12 @@ def installed()
     sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "zigbee", scheme:"untracked"]), displayed: false)
 }
 
+def initialize() {
+    state.lastButtonNumber = 0
+}
+
 def updated() 
 {
    log.debug "updated()"
 }
-
 
