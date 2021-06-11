@@ -14,7 +14,13 @@
  * 
  * rev 1.0 2021-05-08 kkossev - inital test version
  * rev 1.1 2021-06-06 kkossev - added 'held' and 'up_hold' (release) events decoding for the 2 right buttons (3 and 4)
- *
+ * rev 1.2 2021-06-10 kkossev - changed the buttons numbers to match other similar Scene switches ( T S 0 0 4 4 for example):
+ * ---------
+ * ! 4 ! 3 !
+ * ---------
+ * ! 1 ! 2 !
+ * ---------   Button 1 is the one that must be pressed ~10 seconds to start the zigbee pairing process
+ * 
  */
 
 metadata {
@@ -31,7 +37,7 @@ def parse(String description) {
 	log.debug "description is $description"
 	def event = zigbee.getEvent(description)
 	def result = []
-	def buttonNumber = 0
+  def buttonNumber = 0
 	if (event) {
 		sendEvent(event)
         log.debug "sendEvent $event"
@@ -48,8 +54,8 @@ def parse(String description) {
       buttonState = "held"
     }
     else if (descMap.clusterInt == 0x0008 && descMap.command == "01" && descMap.data[0] == "01" ) {
-      buttonNumber = 4
-      state.lastButtonNumber = 4
+      buttonNumber = 2
+      state.lastButtonNumber = 2
       buttonState = "held"
     }
     else if (descMap.clusterInt == 0x0006 && descMap.command == "00" ) {
@@ -58,8 +64,8 @@ def parse(String description) {
     	buttonState = "pushed"
     }
     else if (descMap.clusterInt == 0x0006 && descMap.command == "01" ) {
-     	buttonNumber = 2
-        state.lastButtonNumber = 2
+     	buttonNumber = 4
+        state.lastButtonNumber = 4
     	buttonState = "pushed"
     }
     else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "00" ) {
@@ -68,13 +74,13 @@ def parse(String description) {
     	buttonState = "pushed"
     }
     else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "01" ) {
-    	buttonNumber = 4
-        state.lastButtonNumber = 4
+    	buttonNumber = 2
+        state.lastButtonNumber = 2
     	buttonState = "pushed"
     }
     else if (descMap.clusterInt == 0x0008 && descMap.command == "03" ) {
       buttonNumber = state.lastButtonNumber
-      buttonState = "up_hold"
+      buttonState = "up_hold"			// was "up_hold"
     }
     
     if (buttonState in ["pushed","held","up_hold"] ) {
