@@ -11,8 +11,9 @@ Rev 2.0 : - **shoud work** in SmartThings, bringing all 12 possible buttons comb
           - when pairing to ST hub, TS004F is initialized in 'Scene Control' mode. Note, that you need to first REMOVE the device that uses other driver and then pair the device
             again from SmartThings mobile app!. The initialization in Scene Control mode happens only when the device is in pairing mode, hence it is not possible to simply
             change the driver... the device must be removed and then added to ST hub again!
-          - simulteniously pressing buttons 2 & 3 for more than 5 seconds switches between Dimmer and Scene modes. LED 1 should blink shortly.
           - 4 child devices are created in order to use the standard SmartThings button capabilities (code by SangBoy)
+          
+Rev 2.1   - optimized configuration; removed reverseButton settings; debug logging is now true by default
 
 For autmations withing SmartThings hub please use https://github.com/YooSangBeom/SangBoyST/blob/master/devicetypes/sangboy/zemismart-button.src/zemismart-button.groovy 
 
