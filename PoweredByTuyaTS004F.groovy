@@ -21,10 +21,9 @@
  * ! 1 ! 2 !
  * ---------   Button 1 is the one that must be pressed ~10 seconds to start the zigbee pairing process
  *
- * rev 2.0 2021-10-31 kkossev - initialize TS004F in Scene mode during zigbee pairing. Process both Dimmer and Scene mode keypresses! 
- *                            - Simulteniously pressing buttons 2 & 3 for more than 5 seconds switches between Dimmer and Scene modes. LED 1 should blink shortly.
- *							  - crates 4 child devices for each button
- *							  - added Preferencies:	logEnable, txtEnable, reverseButton
+ * rev 2.0 2021-10-31 kkossev - initialize TS004F in Scene mode during zigbee pairing. Process both Dimmer and Scene mode keypresses!; added Preferencies:	logEnable, txtEnable, reverseButton
+ * rev 2.1 2021-11-06 kkossev - optimized configuration; removed reverseButton settings; debug logging is now true by default
+ *  
  */
 
 import groovy.json.JsonOutput
@@ -45,8 +44,7 @@ metadata {
 	}
     
     preferences {
-        input (name: "reverseButton", type: "bool", title: "Reverse button order", defaultValue: false)
-        input (name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: false)
+        input (name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: true)
         input (name: "txtEnable", type: "bool", title: "Enable description text logging", defaultValue: true)
     }
     
@@ -94,16 +92,16 @@ def parse(String description) {
     	// Scene mode command "FD"
     	if (descMap.clusterInt == 0x0006 && descMap.command == "FD") {
 			if (descMap.sourceEndpoint == "03") {
-     			buttonNumber = reverseButton==true ? 3 : 1
+     			buttonNumber = 1
         	}
         	else if (descMap.sourceEndpoint == "04") {
-      	    	buttonNumber = reverseButton==true  ? 4 : 2
+      	    	buttonNumber = 2
         	}
         	else if (descMap.sourceEndpoint == "02") {
-            	buttonNumber = reverseButton==true  ? 2 : 3
+            	buttonNumber = 3
         	}
         	else if (descMap.sourceEndpoint == "01") {
-       	    	buttonNumber = reverseButton==true  ? 1 : 4
+       	    	buttonNumber = 4
         	}    
 			state.lastButtonNumber = buttonNumber
        		if (descMap.data[0] == "00")
@@ -200,13 +198,8 @@ def refresh() {
 def configure() {
 	log.debug "configure"
 	List cmd = []
-  
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0004")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0000")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0001")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0005")
-    cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0007")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0xfffe")
+
+	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0xfffe")
 	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004")
 	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0xE001 0xD011")
 	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0001 0x0020")
@@ -219,7 +212,7 @@ def configure() {
     cmd.add("zdo bind 0x${device.deviceNetworkId} 0x03 0x01 0x0006 {${device.zigbeeId}} {}")
     cmd.add("zdo bind 0x${device.deviceNetworkId} 0x04 0x01 0x0006 {${device.zigbeeId}} {}")
 
-	sendHubCommand(cmd, 50)
+	sendHubCommand(cmd, 25)
 }
     
 private channelNumber(String dni) 
