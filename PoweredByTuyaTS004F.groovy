@@ -25,6 +25,7 @@
  * rev 2.1 2021-11-06 kkossev - optimized configuration; removed reverseButton settings; debug logging is now true by default
  * rev 2.2 2021-11-06 kkossev - ... and one more (initialization) for luck!
  * rev 2.3 2021-11-06 kkossev - ... and initialize again on every Dimmer Mode event! (hopefully happens just once)
+ * rev 2.4 2021-11-16 kkossev - EP1 binding bug fix; even more optimized configuration!
  *  
  */
 
@@ -47,7 +48,7 @@ metadata {
 	}
     
     preferences {
-        input (name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: false)
+        input (name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: true)
         input (name: "txtEnable", type: "bool", title: "Enable description text logging", defaultValue: true)
     }
     
@@ -154,7 +155,7 @@ def parse(String description) {
        			return null
   			}
             if (descMap.clusterInt == 0x0008 || descMap.clusterInt == 0x0006 && descMap.command != "FD") {
-                    configure()	// try again to switch into Scene mode!
+                    switchToSceneMode();	// try again to switch into Scene mode!
             }
 		}
     	//
@@ -201,30 +202,36 @@ def refresh() {
 	//zigbee.onOffRefresh() + zigbee.onOffConfig()
 }
 
-def configure() {
-	List cmd = []
-	//log.debug "configure() start..."
-
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0000")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0001")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0005")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0x0007")
-  	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0000 0xfffe")
-	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004")
-	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0xE001 0xD011")
-	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0001 0x0020")
-	cmd.add("st rattr 0x${device.deviceNetworkId} 1 0x0001 0x0021")
-	cmd.add("st wattr 0x${device.deviceNetworkId} 1 0x0006 0x8004 0x30 {01}")
-
-    cmd.add("zdo unbind 0x${device.deviceNetworkId} 0x01 0x01 0x0006 {${device.zigbeeId}} {}")
-    cmd.add("zdo bind 0x${device.deviceNetworkId} 0x02 0x01 0x0006 {${device.zigbeeId}} {}")
-    cmd.add("zdo bind 0x${device.deviceNetworkId} 0x03 0x01 0x0006 {${device.zigbeeId}} {}")
-    cmd.add("zdo bind 0x${device.deviceNetworkId} 0x04 0x01 0x0006 {${device.zigbeeId}} {}")
-
-	sendHubCommand(cmd, 1)
-	//log.debug "configure() END"
-    
+def switchToSceneMode()
+{
+	log.trace "switchToSceneMode..."
+	List cmd  = zigbee.writeAttribute(0x0006, 0x8004, 0x30, 0x01)
+    sendHubCommand(cmd, 200)
 }
+
+def switchToDimmerMode()
+{
+	 log.trace "switchToDimmerMode..."
+     List cmd  = zigbee.writeAttribute(0x0006, 0x8004, 0x30, 0x00)  
+     sendHubCommand(cmd, 200)
+}
+
+
+def configure() {
+[
+	"raw 0x0000  {10 00 00 04 00 00 00 01 00 05 00 07 00 FE FF}", "send 0x${device.deviceNetworkId} 1 1", "delay 50",
+	"st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004","delay 20",
+	"st rattr 0x${device.deviceNetworkId} 1 0xE001 0xD011","delay 20",
+	"raw 0x0000  {10 00 00 04 00 20 00 21}", "send 0x${device.deviceNetworkId} 1 1", "delay 25",
+	"st wattr 0x${device.deviceNetworkId} 1 0x0006 0x8004 0x30 {01}","delay 20",
+	"st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004","delay 20",
+	"zdo bind 0x${device.deviceNetworkId} 0x01 0x01 0x0006 {${device.zigbeeId}} {}","delay 20",
+	"zdo bind 0x${device.deviceNetworkId} 0x02 0x01 0x0006 {${device.zigbeeId}} {}","delay 20",
+	"zdo bind 0x${device.deviceNetworkId} 0x03 0x01 0x0006 {${device.zigbeeId}} {}","delay 20",
+	"zdo bind 0x${device.deviceNetworkId} 0x04 0x01 0x0006 {${device.zigbeeId}} {}","delay 20"
+]
+}
+
     
 private channelNumber(String dni) 
 {
@@ -256,6 +263,7 @@ private void createChildButtonDevices_1(numberOfButtons)
 
 def installed() 
 {
+	initialize()
     log.info "installed ..."
     
     def numberOfButtons = 4
