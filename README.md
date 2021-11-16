@@ -16,6 +16,10 @@ Rev 2.0 : - **shoud work** in SmartThings, bringing all 12 possible buttons comb
           - 4 child devices are created in order to use the standard SmartThings button capabilities (code by SangBoy)
           
 Rev 2.1   - optimized configuration; removed reverseButton settings; debug logging is now true by default
+
 Rev 2.2   - ... and one more (initialization) for luck!
+
 Rev 2.3   - ... and initialize again on every Dimmer Mode event! (hopefully happens just once)
+
 Rev 2.4   - EP1 binding bug fix; even more optimized configuration!
+
