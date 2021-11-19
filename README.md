@@ -23,3 +23,4 @@ Rev 2.3   - ... and initialize again on every Dimmer Mode event! (hopefully happ
 
 Rev 2.4   - EP1 binding bug fix; even more optimized configuration!
 
+Rev 2.5   - fixed bug in createChildButtonDevices();  removed preferences section
