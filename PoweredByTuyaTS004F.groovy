@@ -26,6 +26,7 @@
  * rev 2.2 2021-11-06 kkossev - ... and one more (initialization) for luck!
  * rev 2.3 2021-11-06 kkossev - ... and initialize again on every Dimmer Mode event! (hopefully happens just once)
  * rev 2.4 2021-11-16 kkossev - EP1 binding bug fix; even more optimized configuration!
+ * rev 2.5 2021-11-19 kkossev - fixed bug in createChildButtonDevices();  removed preferences section
  *  
  */
 
@@ -46,12 +47,7 @@ metadata {
       
  	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_xabckq1v", model: "TS004F", deviceJoinName: "Powered by Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
 	}
-    
-    preferences {
-        input (name: "logEnable", type: "bool", title: "Enable debug logging", defaultValue: true)
-        input (name: "txtEnable", type: "bool", title: "Enable description text logging", defaultValue: true)
-    }
-    
+
 	tiles(scale: 2)
 	{  
       multiAttributeTile(name: "button", type: "generic", width: 2, height: 2) 
@@ -115,7 +111,7 @@ def parse(String description) {
        		else if (descMap.data[0] == "02")
            		buttonState = "held"
        		else {
-           		if (logEnable) {log.warn "unkknown data in event from cluster ${descMap.clusterInt} sourceEndpoint ${descMap.sourceEndpoint} data[0] = ${descMap.data[0]}"}
+           		log.warn "unkknown data in event from cluster ${descMap.clusterInt} sourceEndpoint ${descMap.sourceEndpoint} data[0] = ${descMap.data[0]}"
  	       		return null 
         	}
     	}
@@ -186,6 +182,8 @@ private sendButtonEvent(buttonNumber, buttonState)
    else 
    {
       log.debug "Child device $buttonNumber not found!"
+      log.warn "Creating child devices again ..."
+      installed()
    }
 }
 
@@ -238,28 +236,29 @@ private channelNumber(String dni)
    dni.split(":")[-1] as Integer
 }
     
-    
-private getButtonName(buttonNum) 
-{
-   return "${device.displayName} " + buttonNum
+
+private getButtonName(buttonNum) {
+	return "${device.displayName} " + buttonNum
 }
-    
-private void createChildButtonDevices_1(numberOfButtons) 
-{
-   state.oldLabel = device.label
-   log.debug "Creating $numberOfButtons"
-   log.debug "Creating $numberOfButtons children"
-   
-   for (i in 1..numberOfButtons) 
-   {
-      log.debug "Creating child $i"
-      def child = addChildDevice("smartthings", "Child Button", "${device.deviceNetworkId}:${i}", device.hubId,[completedSetup: true, label: getButtonName(i),
-				 isComponent: true, componentName: "button$i", componentLabel: "buttton ${i}"])
-      child.sendEvent(name: "supportedButtonValues", value: ["pushed", "double", "held", "up_hold"].encodeAsJSON(), displayed: false)
-      child.sendEvent(name: "numberOfButtons", value: 1, displayed: false)
-      child.sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], displayed: false)
-   }
-} 
+
+
+private void createChildButtonDevices(numberOfButtons) {
+	log.debug "Creating $numberOfButtons child buttons"
+	for (i in 1..numberOfButtons) {
+		def child = childDevices?.find { it.deviceNetworkId == "${device.deviceNetworkId}:${i}" }
+		if (child == null) {
+			log.debug "..Creating child $i"
+			child = addChildDevice("smartthings", "Child Button", "${device.deviceNetworkId}:${i}", device.hubId,
+				[completedSetup: true, label: getButtonName(i),
+				 isComponent: true, componentName: "button$i", componentLabel: "Button ${i}"])
+		}
+		child.sendEvent(name: "supportedButtonValues", value: ["pushed", "double", "held", "up_hold"].encodeAsJSON(), displayed: false)
+		child.sendEvent(name: "numberOfButtons", value: 1, displayed: false)
+		child.sendEvent(name: "button", value: "pushed", data: [buttonNumber: 1], displayed: false)
+	}
+	state.oldLabel = device.label
+}
+
 
 def installed() 
 {
@@ -267,7 +266,7 @@ def installed()
     log.info "installed ..."
     
     def numberOfButtons = 4
-    createChildButtonDevices_1(numberOfButtons)
+    createChildButtonDevices(numberOfButtons)
     
     sendEvent(name: "supportedButtonValues", value: ["pushed", "double", "held", "up_hold"].encodeAsJSON(), displayed: false)
     sendEvent(name: "numberOfButtons", value: numberOfButtons , displayed: false)
