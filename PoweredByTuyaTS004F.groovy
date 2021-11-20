@@ -1,5 +1,5 @@
 /**
- *	Tuya TS004F in Scene Switch mode DH for SmartThings
+ *	Tuya TS004F in Scene Switch mode DHT for SmartThings
  *
  *	Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *	in compliance with the License. You may obtain a copy of the License at:
@@ -22,13 +22,17 @@
  * rev 2.3 2021-11-06 kkossev - ... and initialize again on every Dimmer Mode event! (hopefully happens just once)
  * rev 2.4 2021-11-16 kkossev - EP1 binding bug fix; even more optimized configuration!
  * rev 2.5 2021-11-19 kkossev - fixed bug in createChildButtonDevices();  removed preferences section
+ *     If pressing a button does nothing and you don't see any debug logs on SmartThings Groovy IDE 'Live Logging' page, try the following: 
+ *         Press simultaneously the two buttons on the right row (some TS004F switches have 2 dots and 4 dots engraved on these buttons) for about 5-6 seconds
+ *         until the led of the bottom left key (3-dot-button) lights up for a split second. This key sequence circles between 'dimmer' and 'scene control' modes.
+ *
  * rev 2.6 2021-11-19 kkossev - added 'Reverse button order' setting back (off by default)
  * ---------                    ---------
  * ! 4 ! 3 !                    ! 1 ! 2 !
  * ---------                    ---------
  * ! 1 ! 2 !                    ! 3 ! 4 !
  * --------- : default          --------- : 'Reverse button order' setting ON 
- *  
+ *
  */
 
 import groovy.json.JsonOutput
@@ -37,7 +41,7 @@ import physicalgraph.zigbee.zcl.DataType
 
 metadata {
   definition (name: "Powered by Tuya TS004F", namespace: "smartthings", author: "kkossev", ocfDeviceType: "x.com.st.d.remotecontroller", mcdSync: true, runLocally: true, minHubCoreVersion: '000.019.00012', executeCommandsLocally: true, genericHandler: "Zigbee") {
-	  capability "Refresh"
+  	capability "Refresh"
 	  capability "Button"
       capability "Momentary"
 	  capability "Health Check"
