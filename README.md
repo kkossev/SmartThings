@@ -24,3 +24,6 @@ Rev 2.3   - ... and initialize again on every Dimmer Mode event! (hopefully happ
 Rev 2.4   - EP1 binding bug fix; even more optimized configuration!
 
 Rev 2.5   - fixed bug in createChildButtonDevices();  removed preferences section
+ 
+ **Important**: If pressing a button does nothing and you don't see any debug logs on SmartThings Groovy IDE 'Live Logging' page, try the following:
+          Press simultaneously the two buttons on the right row (some TS004F switches have 2 dots and 4 dots engraved on these buttons) for about 5-6 seconds until the led of the           bottom left key (3-dot-button) lights up for a split second. This key sequence circles between 'dimmer' and 'scene control' modes. Although this DHT tries to configure             the switch in 'scene control' mode during the installation and inital pairing, for some users this fails by unknown (yet) reasons.
