@@ -15,18 +15,19 @@
  * rev 1.0 2021-05-08 kkossev - inital test version
  * rev 1.1 2021-06-06 kkossev - added 'held' and 'up_hold' (release) events decoding for the 2 right buttons (3 and 4)
  * rev 1.2 2021-06-10 kkossev - changed the buttons numbers to match other similar Scene switches ( T S 0 0 4 4 for example):
- * ---------
- * ! 4 ! 3 !
- * ---------
- * ! 1 ! 2 !
- * ---------   Button 1 is the one that must be pressed ~10 seconds to start the zigbee pairing process
- *
+ * 								Button 1 is the lower left key that must be pressed ~10 seconds to start the zigbee pairing process
  * rev 2.0 2021-10-31 kkossev - initialize TS004F in Scene mode during zigbee pairing. Process both Dimmer and Scene mode keypresses!; added Preferencies:	logEnable, txtEnable, reverseButton
  * rev 2.1 2021-11-06 kkossev - optimized configuration; removed reverseButton settings; debug logging is now true by default
  * rev 2.2 2021-11-06 kkossev - ... and one more (initialization) for luck!
  * rev 2.3 2021-11-06 kkossev - ... and initialize again on every Dimmer Mode event! (hopefully happens just once)
  * rev 2.4 2021-11-16 kkossev - EP1 binding bug fix; even more optimized configuration!
  * rev 2.5 2021-11-19 kkossev - fixed bug in createChildButtonDevices();  removed preferences section
+ * rev 2.6 2021-11-19 kkossev - added 'Reverse button order' setting back (off by default)
+ * ---------                    ---------
+ * ! 4 ! 3 !                    ! 1 ! 2 !
+ * ---------                    ---------
+ * ! 1 ! 2 !                    ! 3 ! 4 !
+ * --------- : default          --------- : 'Reverse button order' setting ON 
  *  
  */
 
@@ -71,7 +72,10 @@ metadata {
       main(["button"])
       details(["button","battery", "refresh"])
 	}    
-   
+    
+    preferences {
+        input (name: "reverseButton", type: "bool", title: "Reverse button order", defaultValue: false)
+    }
 }
 
 // Parse incoming device messages to generate events
@@ -92,16 +96,16 @@ def parse(String description) {
     	// Scene mode command "FD"
     	if (descMap.clusterInt == 0x0006 && descMap.command == "FD") {
 			if (descMap.sourceEndpoint == "03") {
-     			buttonNumber = 1
+                buttonNumber = reverseButton==true ? 3 : 1
         	}
         	else if (descMap.sourceEndpoint == "04") {
-      	    	buttonNumber = 2
+                buttonNumber = reverseButton==true  ? 4 : 2
         	}
         	else if (descMap.sourceEndpoint == "02") {
-            	buttonNumber = 3
+                buttonNumber = reverseButton==true  ? 2 : 3
         	}
         	else if (descMap.sourceEndpoint == "01") {
-       	    	buttonNumber = 4
+            	buttonNumber = reverseButton==true  ? 1 : 4
         	}    
 			state.lastButtonNumber = buttonNumber
        		if (descMap.data[0] == "00")
@@ -118,27 +122,27 @@ def parse(String description) {
     	// TS004F in Dimmer mode
     	else {
     		if (descMap.clusterInt == 0x0008 && descMap.command == "01" && descMap.data[0] == "00") {
-      			buttonNumber = 3
+                buttonNumber = reverseButton==true  ? 2 : 3
       			buttonState = "held"
     		}
     		else if (descMap.clusterInt == 0x0008 && descMap.command == "01" && descMap.data[0] == "01") {
-      			buttonNumber = 2
+                buttonNumber = reverseButton==true  ? 4 : 2
       			buttonState = "held"
     		}
     		else if (descMap.clusterInt == 0x0006 && descMap.command == "00" ) {
-    			buttonNumber = 1
+                buttonNumber = reverseButton==true ? 3 : 1
     			buttonState = "pushed"
     		}
     		else if (descMap.clusterInt == 0x0006 && descMap.command == "01") {
-     			buttonNumber = 4
+            	buttonNumber = reverseButton==true  ? 1 : 4
     			buttonState = "pushed"
     		}
     		else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "00") {
-     			buttonNumber = 3
+                buttonNumber = reverseButton==true  ? 2 : 3
     			buttonState = "pushed"
     		}
     		else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "01") {
-    			buttonNumber = 2
+                buttonNumber = reverseButton==true  ? 4 : 2
     			buttonState = "pushed"
     		}
     		else if (descMap.clusterInt == 0x0008 && descMap.command == "03") {
@@ -305,4 +309,5 @@ def updated()
       }
       state.oldLabel = device.label
     }   
+    log.debug "updated() reverseButton is ${reverseButton}"
 }
