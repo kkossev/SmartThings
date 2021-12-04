@@ -27,21 +27,23 @@
  *         until the led of the bottom left key (3-dot-button) lights up for a split second. This key sequence circles between 'dimmer' and 'scene control' modes.
  *
  * rev 2.6 2021-11-19 kkossev - added 'Reverse button order' setting back (off by default)
- * ---------                    ---------
- * ! 4 ! 3 !                    ! 1 ! 2 !
- * ---------                    ---------
- * ! 1 ! 2 !                    ! 3 ! 4 !
- * --------- : default          --------- : 'Reverse button order' setting ON 
- *
+ * ---------                    ---------                                       ! 1 ! - single click
+ * ! 4 ! 3 !                    ! 1 ! 2 !                                       ! 2 ! - single click
+ * ---------                    ---------                                       ! 3 ! - single, double, hold, up_hold(release)
+ * ! 1 ! 2 !                    ! 3 ! 4 !                                       ! 4 ! - single, double, hold, up_hold(release)
+ * --------- : default          --------- : 'Reverse button order' setting ON -------- : YSR-MINI-Z ??????
+ * rev 3.0 2021-12-03 kkossev (development branch!) - added _TZ3000_pcqjmcud (YSR-MINI-Z) and _TZ3000_czuyt8lz (unknown) fingerprints; 'reverse button order' option bug fix;
+ * 
  */
 
 import groovy.json.JsonOutput
 import physicalgraph.zigbee.clusters.iaszone.ZoneStatus
 import physicalgraph.zigbee.zcl.DataType
+import groovy.transform.Field
 
 metadata {
   definition (name: "Powered by Tuya TS004F", namespace: "smartthings", author: "kkossev", ocfDeviceType: "x.com.st.d.remotecontroller", mcdSync: true, runLocally: true, minHubCoreVersion: '000.019.00012', executeCommandsLocally: true, genericHandler: "Zigbee") {
-  	capability "Refresh"
+	  capability "Refresh"
 	  capability "Button"
       capability "Momentary"
 	  capability "Health Check"
@@ -50,7 +52,9 @@ metadata {
       command "refresh"
       command "initialize"
       
- 	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_xabckq1v", model: "TS004F", deviceJoinName: "Powered by Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
+ 	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_xabckq1v", model: "TS004F", deviceJoinName: "Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
+ 	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_czuyt8lz", model: "TS004F", deviceJoinName: "Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
+ 	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_pcqjmcud", model: "TS004F", deviceJoinName: "Tuya YSR-MINI-Z TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
 	}
 
 	tiles(scale: 2)
@@ -123,10 +127,10 @@ def parse(String description) {
  	       		return null 
         	}
     	}
-    	// TS004F in Dimmer mode
+    	// TS004F in Dimmer mode -> descMap.command != "FD" !
     	else {
     		if (descMap.clusterInt == 0x0008 && descMap.command == "01" && descMap.data[0] == "00") {
-                buttonNumber = reverseButton==true  ? 2 : 3
+                buttonNumber = reverseButton==true  ? 3 : 3
       			buttonState = "held"
     		}
     		else if (descMap.clusterInt == 0x0008 && descMap.command == "01" && descMap.data[0] == "01") {
@@ -134,7 +138,7 @@ def parse(String description) {
       			buttonState = "held"
     		}
     		else if (descMap.clusterInt == 0x0006 && descMap.command == "00" ) {
-                buttonNumber = reverseButton==true ? 3 : 1
+                buttonNumber = reverseButton==true ? 2 : 1
     			buttonState = "pushed"
     		}
     		else if (descMap.clusterInt == 0x0006 && descMap.command == "01") {
@@ -142,7 +146,7 @@ def parse(String description) {
     			buttonState = "pushed"
     		}
     		else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "00") {
-                buttonNumber = reverseButton==true  ? 2 : 3
+                buttonNumber = reverseButton==true  ? 3 : 3
     			buttonState = "pushed"
     		}
     		else if (descMap.clusterInt == 0x0008 && descMap.data[0] == "01") {
@@ -153,13 +157,25 @@ def parse(String description) {
       			buttonNumber = state.lastButtonNumber
       			buttonState = "up_hold"			// was "up_hold"
 			}
+    		else if (descMap.clusterInt == 0x0300 && descMap.data[0] == "01") {
+      			buttonNumber = state.lastButtonNumber
+                buttonNumber = reverseButton==true  ? 3 : 3
+    			buttonState = "double"			
+                settings.isYSRMIN = true					// YSR-MINI-Z double click
+			}
+    		else if (descMap.clusterInt == 0x0300 && descMap.data[0] == "03") {
+      			buttonNumber = state.lastButtonNumber
+                buttonNumber = reverseButton==true  ? 4 : 2
+    			buttonState = "double"		
+                settings.isYSRMIN = true					// YSR-MINI-Z double click
+			}
 	    	else {
 				log.warn "DID NOT PARSE MESSAGE for description : $description"
 				log.debug zigbee.parseDescriptionAsMap(description)
        			return null
   			}
             if (descMap.clusterInt == 0x0008 || descMap.clusterInt == 0x0006 && descMap.command != "FD") {
-                    switchToSceneMode();	// try again to switch into Scene mode!
+                    //switchToSceneMode();	// try again to switch into Scene mode!
             }
 		}
     	//
@@ -225,16 +241,16 @@ def switchToDimmerMode()
 
 def configure() {
 [
-	"raw 0x0000  {10 00 00 04 00 00 00 01 00 05 00 07 00 FE FF}", "send 0x${device.deviceNetworkId} 1 1", "delay 50",
-	"st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004","delay 20",
-	"st rattr 0x${device.deviceNetworkId} 1 0xE001 0xD011","delay 20",
-	"raw 0x0000  {10 00 00 04 00 20 00 21}", "send 0x${device.deviceNetworkId} 1 1", "delay 25",
-	"st wattr 0x${device.deviceNetworkId} 1 0x0006 0x8004 0x30 {01}","delay 20",
-	"st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004","delay 20",
-	"zdo bind 0x${device.deviceNetworkId} 0x01 0x01 0x0006 {${device.zigbeeId}} {}","delay 20",
-	"zdo bind 0x${device.deviceNetworkId} 0x02 0x01 0x0006 {${device.zigbeeId}} {}","delay 20",
-	"zdo bind 0x${device.deviceNetworkId} 0x03 0x01 0x0006 {${device.zigbeeId}} {}","delay 20",
-	"zdo bind 0x${device.deviceNetworkId} 0x04 0x01 0x0006 {${device.zigbeeId}} {}","delay 20"
+	"raw 0x0000  {10 00 00 04 00 00 00 01 00 05 00 07 00 FE FF}", "send 0x${device.deviceNetworkId} 1 1", "delay 200",
+	"st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004","delay 50",
+	"st rattr 0x${device.deviceNetworkId} 1 0xE001 0xD011","delay 50",
+	"raw 0x0000  {10 00 00 04 00 20 00 21}", "send 0x${device.deviceNetworkId} 1 1", "delay 50",
+	"st wattr 0x${device.deviceNetworkId} 1 0x0006 0x8004 0x30 {01}","delay 50",
+	"st rattr 0x${device.deviceNetworkId} 1 0x0006 0x8004","delay 50",
+	"zdo bind 0x${device.deviceNetworkId} 0x01 0x01 0x0006 {${device.zigbeeId}} {}","delay 50",
+	"zdo bind 0x${device.deviceNetworkId} 0x02 0x01 0x0006 {${device.zigbeeId}} {}","delay 50",
+	"zdo bind 0x${device.deviceNetworkId} 0x03 0x01 0x0006 {${device.zigbeeId}} {}","delay 50",
+	"zdo bind 0x${device.deviceNetworkId} 0x04 0x01 0x0006 {${device.zigbeeId}} {}","delay 50"
 ]
 }
 
@@ -292,15 +308,23 @@ def installed()
 def initialize() {
 	//state.lastButtonNumber = 0
  	configure()
+
+    /*
     // ... and one more for luck! 
     
     def now = new Date()
 	def runTime = new Date(now.getTime() + (5 * 1000))
 	runOnce(runTime, configure)
     log.debug "scheduled runOnce()..."
-
+*/
 }
 
+/**
+ *  updated()
+ *
+ *  Runs when the user changes any parmeter from mobile app device Settings page.
+ *
+ **/
 def updated() 
 {
    log.debug "updated() childDevices $childDevices"
