@@ -10,7 +10,7 @@
  *	on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *	for the specific language governing permissions and limitations under the License.
  * 
- *  Test DH based on "Zemismart Button", namespace: "SangBoy", author: "YooSangBeom"
+ *  Test DHT based on "Zemismart Button", namespace: "SangBoy", author: "YooSangBeom"
  * 
  * rev 1.0 2021-05-08 kkossev - inital test version
  * rev 1.1 2021-06-06 kkossev - added 'held' and 'up_hold' (release) events decoding for the 2 right buttons (3 and 4)
@@ -31,8 +31,9 @@
  * ! 4 ! 3 !                    ! 1 ! 2 !                                       ! 2 ! - single click
  * ---------                    ---------                                       ! 3 ! - single, double, hold, up_hold(release)
  * ! 1 ! 2 !                    ! 3 ! 4 !                                       ! 4 ! - single, double, hold, up_hold(release)
- * --------- : default          --------- : 'Reverse button order' setting ON -------- : YSR-MINI-Z ??????
- * rev 3.0 2021-12-03 kkossev (development branch!) - added _TZ3000_pcqjmcud (YSR-MINI-Z) and _TZ3000_czuyt8lz (unknown) fingerprints; 'reverse button order' option bug fix;
+ * --------- : default          --------- : 'Reverse button order' setting ON -------- : YSR-MINI-Z remote
+ * rev 2.7 2021-12-03 kkossev (development branch!) - added support for _TZ3000_pcqjmcud (YSR-MINI-Z); 'reverse button order' option bug fix;
+ * rev 3.0 2021-12-04 kkossev (development branch!) - both Dimmer and Scene modes are now supported, the DHT does not try to force Scene mode anymore! Mode can be seen on the Groovy IDE, device 'Current States' section.
  * 
  */
 
@@ -41,20 +42,30 @@ import physicalgraph.zigbee.clusters.iaszone.ZoneStatus
 import physicalgraph.zigbee.zcl.DataType
 import groovy.transform.Field
 
+
+// Constants
+@Field static final String  MODE_DIMMER = "Dimmer"
+@Field static final String  MODE_SCENE  = "Scene"
+@Field static final String  MODE_UNKNOWN = "Unknown"
+
 metadata {
-  definition (name: "Powered by Tuya TS004F", namespace: "smartthings", author: "kkossev", ocfDeviceType: "x.com.st.d.remotecontroller", mcdSync: true, runLocally: true, minHubCoreVersion: '000.019.00012', executeCommandsLocally: true, genericHandler: "Zigbee") {
-	  capability "Refresh"
-	  capability "Button"
-      capability "Momentary"
-	  capability "Health Check"
+	definition (name: "Powered by Tuya TS004F", namespace: "smartthings", author: "kkossev", ocfDeviceType: "x.com.st.d.remotecontroller", mcdSync: true, runLocally: true, minHubCoreVersion: '000.019.00012', executeCommandsLocally: true, genericHandler: "Zigbee") {
+		capability "Refresh"
+	  	capability "Button"
+	  	capability "Health Check"	// ping()
+	  	capability "Battery"
+		capability "Configuration" // configure()
+        capability "Mode"	// setMode (mode); 
+
+        //attribute "batteryRuntime", "String"
       
-      command "configure"
-      command "refresh"
-      command "initialize"
+      	command "configure"
+      	command "refresh"
+      	command "initialize"
       
- 	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_xabckq1v", model: "TS004F", deviceJoinName: "Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
- 	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_czuyt8lz", model: "TS004F", deviceJoinName: "Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
- 	  fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_pcqjmcud", model: "TS004F", deviceJoinName: "Tuya YSR-MINI-Z TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
+ 	  	fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_xabckq1v", model: "TS004F", deviceJoinName: "Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
+ 	  	fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_czuyt8lz", model: "TS004F", deviceJoinName: "Tuya 4 Button TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
+ 	  	fingerprint inClusters: "0000,0001,0003,0004,0006,1000", outClusters: "0019,000A,0003,0004,0005,0006,0008,1000", manufacturer: "_TZ3000_pcqjmcud", model: "TS004F", deviceJoinName: "Tuya YSR-MINI-Z TS004F", mnmn: "SmartThings", vid: "generic-4-button" 
 	}
 
 	tiles(scale: 2)
@@ -68,21 +79,40 @@ metadata {
             attributeState "held", label: "Held", icon:"st.Weather.weather13", backgroundColor:"#53a7c0"
          }
       }
-      valueTile("battery", "device.battery", decoration: "flat", inactiveLabel: false, width: 2, height: 2) 
-      {
+      
+	valueTile("mode", "device.mode", width:2, height:2, inactiveLabel: false, decoration: "flat")
+	{
+         state "mode", label: '${currentValue}% mode', unit: ""
+	}
+      
+    valueTile("battery", "device.battery", decoration: "flat", inactiveLabel: false, width: 2, height: 2) 
+    {
          state "battery", label: '${currentValue}% battery', unit: ""
-      }
-      standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 2, height: 2) 
-      {
-         state "default", action: "refresh.refresh", icon: "st.secondary.refresh"
-      }
+    }
 
-      main(["button"])
-      details(["button","battery", "refresh"])
+    standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 2, height: 2) 
+    {
+        state "default", action: "refresh.refresh", icon: "st.secondary.refresh"
+    }
+
+      
+      main(["button"])	//main(["mode","button"])
+      details(["button","battery","mode","refresh","version"])
 	}    
     
     preferences {
-        input (name: "reverseButton", type: "bool", title: "Reverse button order", defaultValue: false)
+        input name: "reverseButton", type: "bool", title: "Reverse button order", defaultValue: false, required: false
+
+		//input description: "These settings show the current operational mode of the device. Changing it may not have effect, unless the device was not initialized successfuly during the pairing process!", 
+       // 	type: "paragraph", element: "paragraph", title: "Operational mode"
+		//input name: "isSceneMode", type: "bool", title: "Device operates in Scene control mode (otherwise: Dimmer mode)", defaultValue: false, required: false
+            
+        
+        input description: "These settings affect the display of messages in the Live Logging tab of the SmartThings IDE.", type: "paragraph", element: "paragraph", title: "Live Logging"
+		input name: "infoLogging", type: "bool", title: "Display info log messages?", defaultValue: true, required: false
+		input name: "debugLogging", type: "bool", title: "Display debug log messages?", defaultValue: false, required: false
+
+
     }
 }
 
@@ -114,7 +144,14 @@ def parse(String description) {
         	}
         	else if (descMap.sourceEndpoint == "01") {
             	buttonNumber = reverseButton==true  ? 1 : 4
-        	}    
+        	}
+            //device?.updateSetting("isSceneMode", true)
+            if (state.mode != MODE_SCENE) {
+	            state.mode = MODE_SCENE
+                sendEvent(name: "mode", value: state.mode , displayed: true)
+	            log.trace "Switched to ${state.mode} mode"
+            }
+            //settings["isSceneMode"] = true
 			state.lastButtonNumber = buttonNumber
        		if (descMap.data[0] == "00")
            		buttonState = "pushed"
@@ -161,21 +198,23 @@ def parse(String description) {
       			buttonNumber = state.lastButtonNumber
                 buttonNumber = reverseButton==true  ? 3 : 3
     			buttonState = "double"			
-                settings.isYSRMIN = true					// YSR-MINI-Z double click
+                state.YSR_MINI_Z = true					// YSR-MINI-Z double click
 			}
     		else if (descMap.clusterInt == 0x0300 && descMap.data[0] == "03") {
       			buttonNumber = state.lastButtonNumber
                 buttonNumber = reverseButton==true  ? 4 : 2
     			buttonState = "double"		
-                settings.isYSRMIN = true					// YSR-MINI-Z double click
+                state.YSR_MINI_Z = true					// YSR-MINI-Z double click
 			}
 	    	else {
 				log.warn "DID NOT PARSE MESSAGE for description : $description"
 				log.debug zigbee.parseDescriptionAsMap(description)
        			return null
   			}
-            if (descMap.clusterInt == 0x0008 || descMap.clusterInt == 0x0006 && descMap.command != "FD") {
-                    //switchToSceneMode();	// try again to switch into Scene mode!
+            if (state.mode != MODE_DIMMER) {
+	            state.mode = MODE_DIMMER
+                sendEvent(name: "mode", value: state.mode , displayed: true)
+	            log.trace "Switched to ${state.mode} mode"
             }
 		}
     	//
@@ -221,12 +260,15 @@ def ping() {
 
 def refresh() {
 	log.debug "refresh..."
-	//zigbee.onOffRefresh() + zigbee.onOffConfig()
+   // sendEvent([name: "battery", value: state.battery])
+    sendEvent(name: "supportedModes", value: [MODE_DIMMER, MODE_SCENE, MODE_UNKNOWN].encodeAsJSON() , displayed: true)
+    sendEvent(name: "mode", value: state.mode , displayed: true)
 }
 
 def switchToSceneMode()
 {
 	log.trace "switchToSceneMode..."
+    state.mode = MODE_SCENE
 	List cmd  = zigbee.writeAttribute(0x0006, 0x8004, 0x30, 0x01)
     sendHubCommand(cmd, 200)
 }
@@ -234,6 +276,7 @@ def switchToSceneMode()
 def switchToDimmerMode()
 {
 	 log.trace "switchToDimmerMode..."
+     state.mode = MODE_DIMMER
      List cmd  = zigbee.writeAttribute(0x0006, 0x8004, 0x30, 0x00)  
      sendHubCommand(cmd, 200)
 }
@@ -283,6 +326,13 @@ private void createChildButtonDevices(numberOfButtons) {
 	state.oldLabel = device.label
 }
 
+def setMode ( mmode)
+{
+   	device?.updateSetting("mode", mmode)
+
+    sendEvent(name: "mode", value: mmode , displayed: true)
+	log.trace "setMode ${mmode}"
+}
 
 def installed() 
 {
@@ -302,21 +352,21 @@ def installed()
     }
     // These devices don't report regularly so they should only go OFFLINE when Hub is OFFLINE
     sendEvent(name: "DeviceWatch-Enroll", value: JsonOutput.toJson([protocol: "zigbee", scheme:"untracked"]), displayed: false)
+   	device?.updateSetting("mode", "Dimmer")
     
+    refresh()
+}
+
+
+def loadDefaults() {
+	state.YSR_MINI_Z = false
+    state.mode = MODE_UNKNOWN
 }
 
 def initialize() {
 	//state.lastButtonNumber = 0
+    loadDefaults();
  	configure()
-
-    /*
-    // ... and one more for luck! 
-    
-    def now = new Date()
-	def runTime = new Date(now.getTime() + (5 * 1000))
-	runOnce(runTime, configure)
-    log.debug "scheduled runOnce()..."
-*/
 }
 
 /**
