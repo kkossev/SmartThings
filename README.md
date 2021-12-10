@@ -29,5 +29,11 @@ Rev 2.5   - fixed bug in createChildButtonDevices();  removed preferences sectio
           Press simultaneously the two buttons on the right row (some TS004F switches have 2 dots and 4 dots engraved on these buttons) for about 5-6 seconds until the led of the           bottom left key (3-dot-button) lights up for a split second. This key sequence circles between 'dimmer' and 'scene control' modes. Although this DHT tries to configure             the switch in 'scene control' mode during the installation and inital pairing, for some users this fails by unknown (yet) reasons.
           
 Rev 2.6  - added 'Reverse button order' setting back (off by default)
+ 
+Rev 2.7 - added support for _TZ3000_pcqjmcud (YSR-MINI-Z); 'reverse button order' option bug fix;
+ 
+Rev 3.0 - both Dimmer and Scene modes are now supported, the DHT does not try to force Scene mode anymore! Mode can be seen on the Groovy IDE, device 'Current States' section.
+
+
 
   
