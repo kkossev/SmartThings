@@ -32,8 +32,8 @@
  * ---------                    ---------                                       ! 3 ! - single, double, hold, up_hold(release)
  * ! 1 ! 2 !                    ! 3 ! 4 !                                       ! 4 ! - single, double, hold, up_hold(release)
  * --------- : default          --------- : 'Reverse button order' setting ON -------- : YSR-MINI-Z remote
- * rev 2.7 2021-12-03 kkossev (development branch!) - added support for _TZ3000_pcqjmcud (YSR-MINI-Z); 'reverse button order' option bug fix;
- * rev 3.0 2021-12-04 kkossev (development branch!) - both Dimmer and Scene modes are now supported, the DHT does not try to force Scene mode anymore! Mode can be seen on the Groovy IDE, device 'Current States' section.
+ * rev 2.7 2021-12-03 kkossev - added support for _TZ3000_pcqjmcud (YSR-MINI-Z); 'reverse button order' option bug fix;
+ * rev 3.0 2021-12-04 kkossev - both Dimmer and Scene modes are now supported, the DHT does not try to force Scene mode anymore! Mode can be seen on the Groovy IDE, device 'Current States' section.
  * 
  */
 
